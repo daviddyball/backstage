@@ -27,7 +27,9 @@ import {
   TemplaterBuilder,
   PublisherBase,
 } from '../scaffolder';
-import { Tekton } from './tekton';
+import {
+  Tekton,
+} from './tekton';
 
 export interface RouterOptions {
   preparers: PreparerBuilder;
@@ -43,7 +45,9 @@ export async function createRouter(
 ): Promise<express.Router> {
   const router = Router();
 
-  const { logger: parentLogger } = options;
+  const {
+    logger: parentLogger,
+  } = options;
 
   const logger = parentLogger.child({ plugin: 'scaffolder' });
   const jobProcessor = new JobProcessor();
@@ -76,8 +80,9 @@ export async function createRouter(
       const template: TemplateEntityV1alpha1 = req.body.template;
       const values: RequiredTemplateValues & Record<string, JsonValue> =
         req.body.values;
-      const tektonRunner: Tekton = new Tekton();
+      const tektonRunner: Tekton = new Tekton()
 
+      console.log("before jobProcessort.create()");
       const job = jobProcessor.create({
         entity: template,
         values,
@@ -93,6 +98,7 @@ export async function createRouter(
           },
         ],
       });
+      console.log("after jobProcessort.create()");
 
       res.status(201).json({ id: job.id });
 
