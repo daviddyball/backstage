@@ -24,10 +24,10 @@ import {
   JobProcessor,
   PreparerBuilder,
   RequiredTemplateValues,
-  StageContext,
   TemplaterBuilder,
   PublisherBase,
 } from '../scaffolder';
+import { Tekton } from './tekton';
 
 export interface RouterOptions {
   preparers: PreparerBuilder;
@@ -43,13 +43,7 @@ export async function createRouter(
 ): Promise<express.Router> {
   const router = Router();
 
-  const {
-    preparers,
-    templaters,
-    publisher,
-    logger: parentLogger,
-    dockerClient,
-  } = options;
+  const { logger: parentLogger } = options;
 
   const logger = parentLogger.child({ plugin: 'scaffolder' });
   const jobProcessor = new JobProcessor();
@@ -82,45 +76,19 @@ export async function createRouter(
       const template: TemplateEntityV1alpha1 = req.body.template;
       const values: RequiredTemplateValues & Record<string, JsonValue> =
         req.body.values;
+      const tektonRunner: Tekton = new Tekton();
 
       const job = jobProcessor.create({
         entity: template,
         values,
         stages: [
           {
-            name: 'Prepare the skeleton',
+            name: 'Run Tekton Pipeline',
             handler: async ctx => {
-              const preparer = preparers.get(ctx.entity);
-              const skeletonDir = await preparer.prepare(ctx.entity, {
-                logger: ctx.logger,
-              });
-              return { skeletonDir };
-            },
-          },
-          {
-            name: 'Run the templater',
-            handler: async (ctx: StageContext<{ skeletonDir: string }>) => {
-              const templater = templaters.get(ctx.entity);
-              const { resultDir } = await templater.run({
-                directory: ctx.skeletonDir,
-                dockerClient,
+              await tektonRunner.runPipeline({
                 logStream: ctx.logStream,
-                values: ctx.values,
+                values: req.body.values,
               });
-
-              return { resultDir };
-            },
-          },
-          {
-            name: 'Publish template',
-            handler: async (ctx: StageContext<{ resultDir: string }>) => {
-              ctx.logger.info('Will now store the template');
-              const { remoteUrl } = await publisher.publish({
-                entity: ctx.entity,
-                values: ctx.values,
-                directory: ctx.resultDir,
-              });
-              return { remoteUrl };
             },
           },
         ],
